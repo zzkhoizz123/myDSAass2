@@ -11,8 +11,9 @@ RUN   cd /dsa171a2/ \
       && g++ requestLib.cpp -c -std=c++11 -DAVL_USE_HEIGHT \
       && g++ processData.cpp -c -std=c++11 -DAVL_USE_HEIGHT \
       # link the built files
-      && g++ main.o dbLib.o requestLib.o processData.o -std=c++11 -DAVL_USE_HEIGHT -o /dsa171a2/bin/dsa171a2 \
-      && ./dsa171a2 
+      && g++ main.o dbLib.o requestLib.o processData.o -std=c++11 -DAVL_USE_HEIGHT -o /dsa171a2/dsa171a2 \
+	  && curl "https://media.githubusercontent.com/media/nganhkhoa/CTDL-GT-ASS1-FINAL/master/resource/data_origin.csv" > data.csv \
+      && ./dsa171a2 event.txt data.csv
 
 ENTRYPOINT ["/dsa171a2/dsa171a2"]
 
