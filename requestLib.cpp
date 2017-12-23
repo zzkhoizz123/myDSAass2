@@ -27,19 +27,37 @@ void loadRequests(char* fName, L1List<VM_Request> &rList) {
 		if (str.empty())
 			continue;
 		stringstream ss(str);
-		char a[REQUEST_CODE_SIZE];
-		char request[REQUEST_CODE_SIZE];
+		char a[50];
 		while (ss >> a) {
-			int i = 0;
-			while (a[i] != ';' && a[i] != '\0') {
-				request[i] = a[i];
-				i++;
+			VM_Request *request = new VM_Request();
+			char ch;
+			double param;
+			stringstream ss2(a);
+			ss2 >> ch; request->code[0] = ch; request->code[1] = '\0'; // get code
+			ss2 >> ch; // get '_'	
+
+			if (request->code[0] == '2' || request->code[0] == '3') {
+				ss2 >> param; request->params[0] = param;
+				ss2 >> ch >> ch; request->params[1] = (int)ch;
+				ss2 >> ch;
+				if (ch == ';') {				
+					rList.push_back(*request);
+					break;
+				}
 			}
-			request[i] = '\0';
-			VM_Request ne(request);
-			rList.push_back(ne);
-			strcpy(a, "");
-			strcpy(request, "");
+			else {
+				int i = 0;
+				while (ss2 >> param) {
+					request->params[i] = param;
+					ss2 >> ch; // get '_' || ';'
+					if (ch == ';') {
+						rList.push_back(*request);
+						break;
+					}
+					++i;
+				}
+			}
+			rList.push_back(*request);
 		}
 	}
 	requestFile.close();

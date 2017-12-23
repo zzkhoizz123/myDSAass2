@@ -20,8 +20,8 @@ bool initVMGlobalData(void** pGData) {
     // TODO: allocate and initialize global data
     // return false if failed
 
-	L1List<AVLTree<VM_Record>> *dbAVL = new L1List<AVLTree<VM_Record>>;
-	pGData[0] = dbAVL;
+//	L1List<AVLTree<VM_Record>> *dbAVL = new L1List<AVLTree<VM_Record>>;
+//	pGData[0] = dbAVL;
 	
     return true;
 }
@@ -31,10 +31,230 @@ void releaseVMGlobalData(void* pGData) {
 
 }
 
+
+bool op1(VM_Record &a, VM_Record &b);
+bool op2(VM_Record &a, VM_Record &b);
+void ConvertFollowTime(L1List<VM_Record> &recordList, L1List<AVLTree<VM_Record>> &dbAVL);
+bool process1Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbGBAVL);
+
+
+bool op3(VM_Record &record, double &a, char &locate);
+bool process2Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
+bool process3Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
+
+
+//############ global data ################
+L1List<AVLTree<VM_Record>> dbGBAVL1; /// using in case arrange with time (1 4 6 7 8 9) 
+L1List<AVLTree<VM_Record>> dbGBAVL2; /// using in case arrange with longitude or latitude (2 3 5)
+int flat1 = 0; /// flat for case arrange with time
+int flat2 = 0; /// flat for case arrnage with longitude or latitude
+
+
 bool processRequest(VM_Request &request, L1List<VM_Record> &recordList, void *pGData) {
     // TODO: Your code goes here
     // return false for invlaid events
+
+	if (strcmp(request.code, "1") == 0 ) {
+		if (flat1 == 0) {
+			ConvertFollowTime(recordList, dbGBAVL1);
+			flat1 = 1;
+		}
+		return process1Request(request, dbGBAVL1);
+	}
+
+	if (strcmp(request.code, "2") == 0) {
+		if (flat1 == 0) {
+			ConvertFollowTime(recordList, dbGBAVL1);
+			flat1 = 1;
+		}
+		return process2Request(request, dbGBAVL1);
+	}
+
+	if (strcmp(request.code, "3") == 0) {
+		if (flat1 == 0) {
+			ConvertFollowTime(recordList, dbGBAVL1);
+			flat1 = 1;
+		}
+		return process3Request(request, dbGBAVL1);
+	}
+
+
     return true;
 }
 
 
+bool op1(VM_Record &a, VM_Record &b) { /// this function compare follow to time
+	if (a.timestamp < b.timestamp) return true;
+	return false;
+}
+
+bool op2(VM_Record &a, VM_Record &b) {
+	if (a.timestamp > b.timestamp) return true;
+	return false;
+}
+
+void ConvertFollowTime(L1List<VM_Record> &recordList, L1List<AVLTree<VM_Record>> &dbAVL) {
+	L1Item<VM_Record> *pL = recordList.getHead();
+	
+	while (pL) {
+		L1Item<AVLTree<VM_Record>> *pA = dbAVL.getHead();
+		int check = 0;
+		while (pA != NULL && check != 1) {
+			if (strcmp(pL->data.id, pA->data.getpRoot()->data.id) == 0) { /// conincide with id
+				pA->data.Insert(pL->data, op1);
+				check = 1;
+			}
+			pA = pA->pNext;
+		} 
+		if (check == 0) { /// have not had this id yet => insert
+			AVLTree<VM_Record> *ret = new AVLTree<VM_Record>;
+			ret->Insert(pL->data, op1);
+			dbAVL.insertHead(*ret);
+		}
+		pL = pL->pNext;
+	}
+}
+
+//############################# process1Request #################################
+bool process1Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbGBAVL) {
+
+	string strtime;	
+	stringstream ss1, ss2, ss3;
+	ss1 << (int)request.params[0]; string ret1 = ss1.str();
+	if (ret1.length() == 1) ret1 = "000" + ret1;
+	else if (ret1.length() == 2) ret1 = "00" + ret1;
+	else if (ret1.length() == 3) ret1 = "0" + ret1;
+	const char *id1 = ret1.c_str();
+
+	ss2 << (int)request.params[1]; string ret2 = ss2.str();
+	if (ret2.length() == 1) ret2 = "000" + ret2;
+	else if (ret2.length() == 2) ret2 = "00" + ret2;
+	else if (ret2.length() == 3) ret2 = "0" + ret2;
+	const char *id2 = ret2.c_str();
+
+	ss3 << (int)request.params[2]; strtime = ss3.str();
+	if (strtime.length() == 1) strtime = "00000" + strtime;
+	else if (strtime.length() == 2) strtime = "0000" + strtime;
+	else if (strtime.length() == 3) strtime = "000" + strtime;
+	else if (strtime.length() == 4) strtime = "00" + strtime;
+	else if (strtime.length() == 5) strtime = "0" + strtime;
+	tm tm_date = { 0 };	
+
+	tm_date.tm_mon = 11;
+	tm_date.tm_mday = 5;
+	tm_date.tm_year = 2016 - 1900;
+	tm_date.tm_hour = stoi(strtime.substr(0,2), nullptr, 10) ;
+	tm_date.tm_min = stoi(strtime.substr(2, 2), nullptr, 10);
+	tm_date.tm_sec = stoi(strtime.substr(4, 2), nullptr, 10);
+
+	time_t timecompare = mktime(&tm_date);
+
+	L1Item<AVLTree<VM_Record>> *pRun = dbGBAVL.getHead();
+	VM_Record record1; int check1 = 0; /// kiem tra xem co id1 trong db ko
+	VM_Record record2; int check2 = 0; /// kiem tra xem co id2 trong db ko
+
+	while (pRun) {
+		if (strcmp(id1, pRun->data.getpRoot()->data.id) == 0) {
+			check1 = 1; /// co id1 trong db
+			VM_Record recordTemp; recordTemp.timestamp = timecompare;
+			record1 = pRun->data.Find(recordTemp, op1, op2);
+			if (strcmp(record1.id, "0") == 0 || strcmp(record1.id, "") == 0) {
+				cout << request.code << ": " << "-1\n"; /// record1 khong co tai thoi diem do	
+				return true;
+			}
+		}
+
+		if (strcmp(id2, pRun->data.getpRoot()->data.id) == 0) {
+			check2 = 1; /// co id2 trong db
+			VM_Record recordTemp; recordTemp.timestamp = timecompare;
+			record2 = pRun->data.Find(recordTemp, op1, op2);
+			if (strcmp(record2.id, "0") == 0 || strcmp(record2.id, "") == 0) {
+				cout << request.code << ": " << "-1\n";/// record2 khong co tai thoi diem do
+				return true;
+			}
+		}
+		pRun = pRun->pNext;
+	}
+
+	if (check1 == 0 || check2 == 0) return false;
+	char longLocation, laLocation;
+	if (record1.longitude >= record2.longitude) longLocation = 'E';
+	else longLocation = 'W';
+	if (record2.latitude >= record2.latitude) laLocation = 'N';
+	else laLocation = 'S';
+
+	cout << request.code << ": " << longLocation << " " << laLocation << " " << distanceEarth(
+		record1.latitude, record1.longitude, record2.latitude, record2.longitude) << '\n';
+	return true;
+}
+
+//################################## process2Request ######################################
+
+bool op3(VM_Record &record, double &a, char &locate) {
+	switch (locate) {
+	case 'E': {
+		if (record.longitude >= a) return true;
+		return false;
+	}
+	case 'W': {
+		if (record.longitude < a) return true;
+		return false;
+	}
+	case 'N': {
+		if (record.latitude >= a) return true;
+		return false;
+	}
+	case 'S': {
+		if (record.latitude < a)return true;
+		return false;
+	}
+	default:
+		return false;
+	}
+}
+
+bool process2Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
+
+	double locateCompare = request.params[0];
+	char locate = (int)request.params[1];
+
+	if (locate != 'E' && locate != 'W') {
+		return false;
+	}
+
+	L1Item<AVLTree<VM_Record>> *pRun = dbAVL.getHead();
+	int number = 0;
+
+	while (pRun) {
+		bool check = pRun->data.Traverse_NLR(op3, locateCompare, locate);
+		if (check == true) {
+			++number;
+		}
+		pRun = pRun->pNext;
+	}	
+	cout << request.code << ": " << number << '\n';
+	return true;
+}
+
+bool process3Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
+
+	double locateCompare = request.params[0];
+	char locate = (int)request.params[1];
+
+	if (locate != 'N' && locate != 'S') {
+		return false;
+	}
+
+	L1Item<AVLTree<VM_Record>> *pRun = dbAVL.getHead();
+	int number = 0;
+
+	while (pRun) {
+		bool check = pRun->data.Traverse_NLR(op3, locateCompare, locate);
+		if (check == true) {
+			++number;
+		}
+		pRun = pRun->pNext;
+	}
+	cout << request.code << ": " << number << '\n';
+	return true;
+}

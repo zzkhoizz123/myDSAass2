@@ -16,7 +16,7 @@ int main(int narg, char** argv) {
     L1List<VM_Request>  requestList;
     L1List<VM_Record>   db;
 
-    loadRequests(argv[1], requestList);
+	loadRequests(argv[1], requestList); cout << "xong" << endl;
     loadVMDB(argv[2], db);
 
     cout << fixed << setprecision(12);// preset for floating point numbers
@@ -25,5 +25,6 @@ int main(int narg, char** argv) {
 
     cout << resetiosflags(ios::showbase) << setprecision(-1);
 
+	system("pause");
     return 0;
 }

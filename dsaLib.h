@@ -230,16 +230,24 @@ protected:
 	bool BalanceLeft(AVLNode<T> *&pR);
 	bool BalanceRight(AVLNode<T> *&pR);
 	void Destroy(AVLNode<T> *pR);
-	void Traverse_NLR(AVLNode<T> *pR, void(*op)(T&));
+	bool Traverse_NLR(AVLNode<T>* pR, bool(*op)(T&, double &, char &), double &a, char &locate);
 	bool Insert(T &a, AVLNode<T>*&pR);
+	bool Insert(T &a, AVLNode<T>*&pR, bool(*op)(T &, T&));
 	bool Remove(T &a, AVLNode<T>*&pR);
-	int Find(T &a, AVLNode<T>* pR);
+	T Find(T &a, AVLNode<T>* pR, bool (*op1)(T &, T &), bool (*op2)(T &, T&));
 	int Height(AVLNode<T>* pR);
 public:
+
 	AVLTree() :pRoot(NULL) {}
 	~AVLTree() { Destroy(this->pRoot); }
-	void Traverse_NLR(void(*op)(T&)) {
-		if (this->pRoot) { Traverse_NLR(this->pRoot, op); }
+
+	AVLNode<T>* getpRoot() {
+		return this->pRoot;
+	}
+
+	bool Traverse_NLR( bool(*op)(T&, double &, char &), double &a, char &locate) {
+		if (this->pRoot) { return Traverse_NLR(this->pRoot, op, a, locate); }
+		return true;
 	}
 
 	int Height() {
@@ -250,12 +258,17 @@ public:
 		return Insert(a, this->pRoot);
 	}
 
+
+	void Insert(T& a, bool(*op)(T &, T &)) {
+		Insert(a, this->pRoot, op);
+	}
+
 	bool Remove(T &a) {
 		return Remove(a, this->pRoot);
 	}
 
-	int Find(T &a) {
-		return this->Find(a, this->pRoot);
+	T Find(T &a, bool (*op1)(T &, T &), bool (*op2)(T &, T&)) {
+		return this->Find(a, this->pRoot, op1, op2);
 	}
 };
 
@@ -380,11 +393,15 @@ int AVLTree<T>::Height(AVLNode<T>* pR) {
 }
 
 template<class T>
-int AVLTree<T>::Find(T &a, AVLNode<T>* pR) {
-	if (pR == NULL)  return 0;
-	else if (a < pR->data) return Find(a, pR->pLeft);
-	else if (a > pR->data)  return Find(a, pR->pRight);
-	else return 1;
+T AVLTree<T>::Find(T &a, AVLNode<T>* pR, bool (*op1)(T&, T&), bool (*op2)(T&, T&)) { // op1: is compare smaller, 
+																						// op2 : is compare greater
+	if (pR == NULL) {
+		T ret;
+		return ret; // a.id[0] == '0';
+	}
+	else if (op1(a, pR->data) == true) return Find(a, pR->pLeft, op1 ,op2);
+	else if (op2(a , pR->data) == true)  return Find(a, pR->pRight, op1, op2);
+	else return pR->data;
 }
 
 template<class T>
@@ -396,11 +413,13 @@ void AVLTree<T>::Destroy(AVLNode<T>*pR) {
 }
 
 template<class T>
-void AVLTree<T>::Traverse_NLR(AVLNode<T>* pR, void(*op)(T&)) {
+bool AVLTree<T>::Traverse_NLR(AVLNode<T>* pR, bool(*op)(T&, double &, char &), double &a, char &locate) {
 	if (pR) {
-		op(pR->data);
-		Traverse_NLR(pR->pLeft, op);
-		Traverse_NLR(pR->pRight, op);
+		if (op(pR->data, a, locate) == false) return false;
+		return (Traverse_NLR(pR->pLeft, op, a, locate) && Traverse_NLR(pR->pRight, op, a, locate));
+	}
+	else { // pR == NULL
+		return true;
 	}
 }
 
@@ -449,6 +468,17 @@ bool AVLTree<T>::Insert(T &a, AVLNode<T>*&pR) {
 	}
 }
 
-
+template<class T>
+bool AVLTree<T>::Insert(T &a, AVLNode<T>*&pR, bool(*op)(T &, T&)) { // this boolean function compare smaller
+	if (pR == NULL) { pR = new AVLNode<T>(a); return true; }
+	if (op(a, pR->data) == true) { // insert left
+		if (Insert(a, pR->pLeft, op) == false) return false;
+		return this->BalanceLeft(pR);
+	} // end of insert
+	else {
+		if (Insert(a, pR->pRight, op) == false) return false;
+		return this->BalanceRight(pR);
+	}
+}
 
 #endif //A02_DSALIB_H
