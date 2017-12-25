@@ -40,8 +40,13 @@ bool process1Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbGBAVL);
 
 bool op3(VM_Record &record, double &a, char &locate);
 bool process2Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
+
 bool process3Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 
+bool Helpprocess4Request(AVLNode<VM_Record>* pR, double Along, double Alat, double R, time_t H1, time_t H2);
+bool process4Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
+
+bool process5Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 
 //############ global data ################
 L1List<AVLTree<VM_Record>> dbGBAVL1; /// using in case arrange with time (1 4 6 7 8 9) 
@@ -78,6 +83,13 @@ bool processRequest(VM_Request &request, L1List<VM_Record> &recordList, void *pG
 		return process3Request(request, dbGBAVL1);
 	}
 
+	if (strcmp(request.code, "4") == 0) {
+		if (flat1 == 0) {
+			ConvertFollowTime(recordList, dbGBAVL1);
+			flat1 = 1;
+		}
+		return process4Request(request, dbGBAVL1);
+	}
 
     return true;
 }
@@ -140,9 +152,14 @@ bool process1Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbGBAVL) {
 	else if (strtime.length() == 5) strtime = "0" + strtime;
 	tm tm_date = { 0 };	
 
-	tm_date.tm_mon = 11;
-	tm_date.tm_mday = 5;
-	tm_date.tm_year = 2016 - 1900;
+	//------------------ lay ngay thang nam trong database
+	char Date[26];
+	strPrintTime(Date, dbGBAVL1.getHead()->data.getpRoot()->data.timestamp);
+	string str = Date;
+
+	tm_date.tm_mon = stoi(str.substr(5, 2)) - 1;
+	tm_date.tm_mday = stoi(str.substr(8,2));
+	tm_date.tm_year = stoi(str.substr(0,4)) - 1900;
 	tm_date.tm_hour = stoi(strtime.substr(0,2), nullptr, 10) ;
 	tm_date.tm_min = stoi(strtime.substr(2, 2), nullptr, 10);
 	tm_date.tm_sec = stoi(strtime.substr(4, 2), nullptr, 10);
@@ -189,7 +206,6 @@ bool process1Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbGBAVL) {
 }
 
 //################################## process2Request ######################################
-
 bool op3(VM_Record &record, double &a, char &locate) {
 	switch (locate) {
 	case 'E': {
@@ -236,6 +252,7 @@ bool process2Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 	return true;
 }
 
+//############################ process3Request ###############################
 bool process3Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 
 	double locateCompare = request.params[0];
@@ -256,5 +273,69 @@ bool process3Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 		pRun = pRun->pNext;
 	}
 	cout << request.code << ": " << number << '\n';
+	return true;
+}
+
+//################################### process4Request ####################################
+
+bool Helpprocess4Request(AVLNode<VM_Record>* pR, double Along, double Alat, double R, time_t H1, time_t H2) {
+	
+	if (pR) {
+		if (pR->data.timestamp < H1) return Helpprocess4Request(pR->pRight, Along, Alat, R, H1, H2);
+		else if (pR->data.timestamp > H2) return Helpprocess4Request(pR->pLeft, Along, Alat, R, H1, H2);
+		else {
+			double a = distanceEarth(Alat, Along, pR->data.latitude, pR->data.longitude);
+			cout << a << endl;
+			if (a <= R) {
+				
+				return true;
+			}
+			else return (Helpprocess4Request(pR->pLeft, Along, Alat, R, H1, H2) || Helpprocess4Request(pR->pRight, Along, Alat, R, H1, H2));
+		}
+	}
+	else return false;
+}
+
+bool process4Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
+
+	double Along, Alat, R;
+	time_t H1, H2;
+
+	/// get them from request
+	Along = request.params[0];
+	Alat = request.params[1];
+	R = request.params[2];
+
+	tm tm_date1 = { 0 };
+	tm tm_date2 = { 0 };
+	//------------------ lay ngay thang nam trong database
+	char Date[26];
+	strPrintTime(Date, dbGBAVL1.getHead()->data.getpRoot()->data.timestamp);
+	string str = Date;
+
+	tm_date2.tm_mon = tm_date1.tm_mon = stoi(str.substr(5, 2)) - 1;
+	tm_date2.tm_mday = tm_date1.tm_mday = stoi(str.substr(8, 2));
+	tm_date2.tm_year =  tm_date1.tm_year = stoi(str.substr(0, 4)) - 1900;
+	tm_date1.tm_hour = (int)request.params[3]; tm_date2.tm_hour = (int)request.params[4];
+	H1 = mktime(&tm_date1);
+	H2 = mktime(&tm_date2);
+	
+	//------------------- thuc thi request
+	L1Item<AVLTree<VM_Record>> *pRun = dbAVL.getHead();
+	int count = 0;
+
+	while (pRun) {
+		bool check = Helpprocess4Request(pRun->data.getpRoot(), Along, Alat, R, H1, H2);
+		if (check == true) ++count;				
+		pRun = pRun->pNext;
+	}
+
+	cout << request.code << ": " << count << '\n';
+	return true;
+}
+
+//#################################### process5Request ######################################
+bool process5Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
+
 	return true;
 }

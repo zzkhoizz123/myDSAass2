@@ -51,7 +51,6 @@ void loadRequests(char* fName, L1List<VM_Request> &rList) {
 					request->params[i] = param;
 					ss2 >> ch; // get '_' || ';'
 					if (ch == ';') {
-						rList.push_back(*request);
 						break;
 					}
 					++i;

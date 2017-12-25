@@ -23,7 +23,7 @@
 using namespace std;
 
 void    strPrintTime(char* des, time_t& t) {
-    tm *pTime = gmtime(&t);
+    tm *pTime = localtime(&t);
     strftime(des, 26, "%Y-%m-%d %H:%M:%S", pTime);
 }
 
