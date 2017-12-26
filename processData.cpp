@@ -46,13 +46,14 @@ bool process3Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 bool Helpprocess4Request(AVLNode<VM_Record>* pR, double Along, double Alat, double R, time_t H1, time_t H2);
 bool process4Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 
+int Helpprocess5Request(AVLNode<VM_Record> *pR, double Along, double Alat, double R);
 bool process5Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 
+bool process6Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
+
 //############ global data ################
-L1List<AVLTree<VM_Record>> dbGBAVL1; /// using in case arrange with time (1 4 6 7 8 9) 
-L1List<AVLTree<VM_Record>> dbGBAVL2; /// using in case arrange with longitude or latitude (2 3 5)
+L1List<AVLTree<VM_Record>> dbGBAVL1; /// using in case arrange with time
 int flat1 = 0; /// flat for case arrange with time
-int flat2 = 0; /// flat for case arrnage with longitude or latitude
 
 
 bool processRequest(VM_Request &request, L1List<VM_Record> &recordList, void *pGData) {
@@ -89,6 +90,14 @@ bool processRequest(VM_Request &request, L1List<VM_Record> &recordList, void *pG
 			flat1 = 1;
 		}
 		return process4Request(request, dbGBAVL1);
+	}
+
+	if (strcmp(request.code, "5") == 0) {
+		if (flat1 == 0) {
+			ConvertFollowTime(recordList, dbGBAVL1);
+			flat1 = 1;
+		}
+		return process5Request(request, dbGBAVL1);
 	}
 
     return true;
@@ -277,19 +286,13 @@ bool process3Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 }
 
 //################################### process4Request ####################################
-
 bool Helpprocess4Request(AVLNode<VM_Record>* pR, double Along, double Alat, double R, time_t H1, time_t H2) {
 	
 	if (pR) {
 		if (pR->data.timestamp < H1) return Helpprocess4Request(pR->pRight, Along, Alat, R, H1, H2);
 		else if (pR->data.timestamp > H2) return Helpprocess4Request(pR->pLeft, Along, Alat, R, H1, H2);
 		else {
-			double a = distanceEarth(Alat, Along, pR->data.latitude, pR->data.longitude);
-			cout << a << endl;
-			if (a <= R) {
-				
-				return true;
-			}
+			if (distanceEarth(Alat, Along, pR->data.latitude, pR->data.longitude) <= R)	return true;		
 			else return (Helpprocess4Request(pR->pLeft, Along, Alat, R, H1, H2) || Helpprocess4Request(pR->pRight, Along, Alat, R, H1, H2));
 		}
 	}
@@ -335,7 +338,58 @@ bool process4Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 }
 
 //#################################### process5Request ######################################
+int Helpprocess5Request(AVLNode<VM_Record> *pR, double Along, double Alat, double R) {
+	static int count = 0;
+	if (pR == NULL) return count;
+	else {
+		if (distanceEarth(pR->data.latitude, pR->data.longitude, Alat, Along) <= R) ++count;
+		int a = Helpprocess5Request(pR->pLeft, Along, Alat, R);
+		int b = Helpprocess5Request(pR->pRight, Along, Alat, R);
+		return (a > b ? a : b);
+	}
+}
+
 bool process5Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
+
+	stringstream ss1;
+	ss1 << (int)request.params[0]; string ret = ss1.str();
+	if (ret.length() == 1) ret = "000" + ret;
+	else if (ret.length() == 2) ret = "00" + ret;
+	else if (ret.length() == 3) ret = "0" + ret;
+	const char *id = ret.c_str();
+
+	double Along, Alat, R;
+	Along = request.params[1];
+	Alat = request.params[2];
+	R = request.params[3];
+
+	int count = -1;
+	L1Item<AVLTree<VM_Record>> *pRun = dbAVL.getHead();
+	while (pRun) {
+		if (strcmp(id, pRun->data.getpRoot()->data.id) == 0) {
+			count = Helpprocess5Request(pRun->data.getpRoot(), Along, Alat, R);
+			break;
+		}
+		pRun = pRun->pNext;
+	}
+	if (count == -1) return false;
+	cout << request.code << ": " << count << '\n';
+	return true;
+}
+
+//############################### process6Request ##################################
+
+string solveTime(string datetime) { // 12/05/2016 00:41:05
+
+
+}
+
+
+
+bool process6Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
+
+
+
 
 	return true;
 }
