@@ -17,26 +17,17 @@ using namespace std;
 
 
 bool initVMGlobalData(void** pGData) {
-    // TODO: allocate and initialize global data
-    // return false if failed
-
-//	L1List<AVLTree<VM_Record>> *dbAVL = new L1List<AVLTree<VM_Record>>;
-//	pGData[0] = dbAVL;
-	
+   
     return true;
 }
-
 void releaseVMGlobalData(void* pGData) {
     // TODO: do your cleanup, left this empty if you don't have any dynamically allocated data
-
 }
-
 
 bool op1(VM_Record &a, VM_Record &b);
 bool op2(VM_Record &a, VM_Record &b);
 void ConvertFollowTime(L1List<VM_Record> &recordList, L1List<AVLTree<VM_Record>> &dbAVL);
 bool process1Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbGBAVL);
-
 
 bool op3(VM_Record &record, double &a, char &locate);
 bool process2Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
@@ -49,8 +40,13 @@ bool process4Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 int Helpprocess5Request(AVLNode<VM_Record> *pR, double Along, double Alat, double R);
 bool process5Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 
+void Print(MapOver *a, int N);
+bool op(MapOver &a, MapOver &b);
+time_t solveTime(time_t datetime);
+void traverseCheckOver(AVLNode<VM_Record> *pR, MapOver &Map, double Along, double Alat, time_t H1, time_t H2);
 bool process6Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 
+bool process7Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 //############ global data ################
 L1List<AVLTree<VM_Record>> dbGBAVL1; /// using in case arrange with time
 int flat1 = 0; /// flat for case arrange with time
@@ -100,9 +96,24 @@ bool processRequest(VM_Request &request, L1List<VM_Record> &recordList, void *pG
 		return process5Request(request, dbGBAVL1);
 	}
 
-    return true;
-}
+	if (strcmp(request.code, "6") == 0) {
+		if (flat1 == 0) {
+			ConvertFollowTime(recordList, dbGBAVL1);
+			flat1 = 1;
+		}
+		return process6Request(request, dbGBAVL1);
+	}
 
+	if (strcmp(request.code, "7") == 0) {
+		if (flat1 == 0) {
+			ConvertFollowTime(recordList, dbGBAVL1);
+			flat1 = 1;
+		}
+		return process7Request(request, dbGBAVL1);
+	}
+
+    return false;
+}
 
 bool op1(VM_Record &a, VM_Record &b) { /// this function compare follow to time
 	if (a.timestamp < b.timestamp) return true;
@@ -378,18 +389,145 @@ bool process5Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 }
 
 //############################### process6Request ##################################
+struct MapOver {	
+	char	id[ID_MAX_LENGTH];
+	int		check_2km;
+	int		check_500m;
+	int		check_300m;
+	
+	MapOver() :check_2km(0), check_500m(0), check_300m(0) {
+		id[0] = 0;
+	}
+	MapOver(MapOver& a) :check_2km(a.check_2km), check_500m(a.check_500m), check_300m(a.check_300m) {
+		strcpy(id, a.id);
+	}
+};
 
-string solveTime(string datetime) { // 12/05/2016 00:41:05
 
-
+void traverseCheckOver(AVLNode<VM_Record> *pR, MapOver &Map, double Along, double Alat, time_t H1, time_t H2) {
+	if (pR) {
+		if (pR->data.timestamp < H1) traverseCheckOver(pR->pRight, Map, Along, Alat, H1, H2);
+		else if (pR->data.timestamp > H2) traverseCheckOver(pR->pLeft, Map, Along, Alat, H1, H2);
+		else {
+			double ret = distanceEarth(Alat, Along, pR->data.latitude, pR->data.longitude);
+			if (ret <= 2.0) Map.check_2km = 1;
+			if (ret <= 0.5) Map.check_500m = 1;
+			if (ret <= 0.3) Map.check_300m = 1;
+		}
+	}
 }
 
+time_t solveTime(time_t datetime) { // 2016/12/05 00:41
+	char Date[26];
+	strPrintTime(Date, datetime);
+	string str = Date;
+	int hour, min, day, month, year;
+	
+	year = stoi(str.substr(0, 4));
+	month = stoi(str.substr(5, 2));
+	day = stoi(str.substr(8, 2));
+	hour = stoi(str.substr(11, 2));
+	min = stoi(str.substr(14, 2));
 
+	if (min >= 15) min = min - 15;
+	else { // min < 15
+		if (hour > 0) {
+			hour = hour - 1;
+			min = 60 - (15 - min);
+		}
+		else { // hour = 0
+			day = day - 1;
+			hour = 23;
+		}
+	}
+	tm tm_date = { 0 };
+	tm_date.tm_mon = month - 1;
+	tm_date.tm_mday = day;
+	tm_date.tm_year = year - 1900;
+	tm_date.tm_hour = hour;
+	tm_date.tm_min = min;
+
+	return mktime(&tm_date);
+}
+
+bool op(MapOver &a, MapOver &b) {
+	if (strcmp(a.id, b.id) > 0) return true;
+	return false;
+}
+
+void Print(MapOver *a, int N) {
+	for (int i = 0; i < N; i++) {
+		cout << " "<< a[i].id;
+	}
+}
 
 bool process6Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 
+	double Along = request.params[0];
+	double Alat = request.params[1];
+	int M = (int)request.params[2];
 
+	stringstream ss3;
+	ss3 << (int)request.params[3]; string strtime = ss3.str();
+	if (strtime.length() == 1) strtime = "000" + strtime;
+	else if (strtime.length() == 2) strtime = "00" + strtime;
+	else if (strtime.length() == 3) strtime = "0" + strtime;
+	
+	//------------------ lay ngay thang nam trong database
+	tm tm_date = { 0 };
+	char Date[26];
+	strPrintTime(Date, dbGBAVL1.getHead()->data.getpRoot()->data.timestamp); // 2016-12-05 00:41:04
+	string str = Date;
 
+	tm_date.tm_mon = stoi(str.substr(5, 2)) - 1;
+	tm_date.tm_mday = stoi(str.substr(8, 2));
+	tm_date.tm_year = stoi(str.substr(0, 4)) - 1900;
+	tm_date.tm_hour = stoi(strtime.substr(0, 2));
+	tm_date.tm_min = stoi(strtime.substr(2, 2));
+	
+	time_t H2 = mktime(&tm_date);
+	time_t H1 = solveTime(H2);
+
+	L1Item<AVLTree<VM_Record>> *pRun = dbAVL.getHead();
+	MapOver mapArr_500m[10000]; int run1 = 0; 
+	MapOver mapArr_500mExc[10000]; int run2 = 0;
+	MapOver mapArr_Total[10000]; int run3 = 0;
+	int count_2km = 0, count_300m = 0;
+	while (pRun) {
+		MapOver *map = new MapOver();
+		strcpy(map->id, pRun->data.getpRoot()->data.id);
+		traverseCheckOver(pRun->data.getpRoot(), *map, Along, Alat, H1, H2);
+		if (map->check_2km == 1) ++count_2km;
+		if (map->check_500m == 1) {
+			mapArr_500m[run1++] = *map; 
+		}
+		else mapArr_500mExc[run2++] = *map;
+		if (map->check_300m == 1) ++count_300m;
+		mapArr_Total[run3++] = *map;
+		pRun = pRun->pNext;
+	}
+
+	if (count_2km < M) {
+		shellSort(mapArr_Total, run3, op);
+		cout << request.code << ":";
+		Print(mapArr_Total, run3); cout << " - \n";
+	}
+	else if (count_300m > 0.75*M) {
+		shellSort(mapArr_Total, run3, op);
+		cout << request.code << ": -";
+		Print(mapArr_Total, run3); cout << '\n';
+	}
+	else {
+		shellSort(mapArr_500m, run1, op);
+		shellSort(mapArr_500mExc, run2, op);
+		cout << request.code << ":"; Print(mapArr_500m, run1); cout << " -"; Print(
+			mapArr_500mExc, run2); cout << '\n';
+	}
+	return true;
+}
+
+//############################## process7Request ###############################
+bool process7Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 
 	return true;
 }
