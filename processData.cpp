@@ -40,10 +40,6 @@ bool process4Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 int Helpprocess5Request(AVLNode<VM_Record> *pR, double Along, double Alat, double R);
 bool process5Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 
-void Print(MapOver *a, int N);
-bool op(MapOver &a, MapOver &b);
-time_t solveTime(time_t datetime);
-void traverseCheckOver(AVLNode<VM_Record> *pR, MapOver &Map, double Along, double Alat, time_t H1, time_t H2);
 bool process6Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
 
 bool process7Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL);
@@ -417,7 +413,7 @@ void traverseCheckOver(AVLNode<VM_Record> *pR, MapOver &Map, double Along, doubl
 	}
 }
 
-time_t solveTime(time_t datetime) { // 2016/12/05 00:41
+time_t solveTime_Over(time_t datetime) { // 2016/12/05 00:41
 	char Date[26];
 	strPrintTime(Date, datetime);
 	string str = Date;
@@ -438,6 +434,7 @@ time_t solveTime(time_t datetime) { // 2016/12/05 00:41
 		else { // hour = 0
 			day = day - 1;
 			hour = 23;
+			min = 60 - (15 - min);
 		}
 	}
 	tm tm_date = { 0 };
@@ -450,12 +447,12 @@ time_t solveTime(time_t datetime) { // 2016/12/05 00:41
 	return mktime(&tm_date);
 }
 
-bool op(MapOver &a, MapOver &b) {
+bool op_MapOver(MapOver &a, MapOver &b) {
 	if (strcmp(a.id, b.id) > 0) return true;
 	return false;
 }
 
-void Print(MapOver *a, int N) {
+void Print_Over(MapOver *a, int N) {
 	for (int i = 0; i < N; i++) {
 		cout << " "<< a[i].id;
 	}
@@ -486,7 +483,7 @@ bool process6Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 	tm_date.tm_min = stoi(strtime.substr(2, 2));
 	
 	time_t H2 = mktime(&tm_date);
-	time_t H1 = solveTime(H2);
+	time_t H1 = solveTime_Over(H2);
 
 	L1Item<AVLTree<VM_Record>> *pRun = dbAVL.getHead();
 	MapOver mapArr_500m[10000]; int run1 = 0; 
@@ -508,26 +505,173 @@ bool process6Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 	}
 
 	if (count_2km < M) {
-		shellSort(mapArr_Total, run3, op);
+		shellSort(mapArr_Total, run3, op_MapOver);
 		cout << request.code << ":";
-		Print(mapArr_Total, run3); cout << " - \n";
+		Print_Over(mapArr_Total, run3); cout << " - \n";
 	}
 	else if (count_300m > 0.75*M) {
-		shellSort(mapArr_Total, run3, op);
+		shellSort(mapArr_Total, run3, op_MapOver);
 		cout << request.code << ": -";
-		Print(mapArr_Total, run3); cout << '\n';
+		Print_Over(mapArr_Total, run3); cout << '\n';
 	}
 	else {
-		shellSort(mapArr_500m, run1, op);
-		shellSort(mapArr_500mExc, run2, op);
-		cout << request.code << ":"; Print(mapArr_500m, run1); cout << " -"; Print(
+		shellSort(mapArr_500m, run1, op_MapOver);
+		shellSort(mapArr_500mExc, run2, op_MapOver);
+		cout << request.code << ":"; Print_Over(mapArr_500m, run1); cout << " -"; Print_Over(
 			mapArr_500mExc, run2); cout << '\n';
 	}
 	return true;
 }
 
 //############################## process7Request ###############################
+struct MapCongestion {
+	char	id[ID_MAX_LENGTH];
+	int		check_500m;
+	int		check_2kmTo1km;
+	double	distance_2kmTo1km;
+
+	MapCongestion() : check_500m(0), check_2kmTo1km(0), distance_2kmTo1km(0.0) {
+		id[0] = 0;
+	}
+	MapCongestion(MapCongestion& a) : check_500m(a.check_500m), check_2kmTo1km(a.check_2kmTo1km), 
+		distance_2kmTo1km(a.distance_2kmTo1km) {
+		strcpy(id, a.id);
+	}
+};
+
+double traverseCheckCongestion(AVLNode<VM_Record> *pR, MapCongestion &Map, double Along, double Alat, time_t H1, time_t H2) {
+	static double max_2kmTo1km = 0.0;
+	if (pR == NULL) return max_2kmTo1km;
+	else {
+		if (pR->data.timestamp < H1) return traverseCheckCongestion(pR->pRight, Map, Along, Alat, H1, H2);
+		else if (pR->data.timestamp > H2) return traverseCheckCongestion(pR->pLeft, Map, Along, Alat, H1, H2);
+		else {
+			double ret = distanceEarth(Alat, Along, pR->data.latitude, pR->data.longitude);
+			if (ret <= 0.5) Map.check_500m = 1;
+			if (ret <= 2.0 && ret >= 1.0) {
+				Map.check_2kmTo1km = 1;
+				max_2kmTo1km = ret > max_2kmTo1km ? ret : max_2kmTo1km;
+			}
+		}
+	}
+}
+
+bool op_MapCong_id(MapCongestion &a, MapCongestion &b) {
+	if (strcmp(a.id,b.id) > 0) return true;
+	return false;
+}
+
+bool op_MapCong_dis(MapCongestion &a, MapCongestion &b) {
+	if (a.distance_2kmTo1km < b.distance_2kmTo1km) return true;
+	return false;
+}
+
+time_t solveTime_Cog(time_t datetime) { // 2016/12/05 00:41
+	char Date[26];
+	strPrintTime(Date, datetime);
+	string str = Date;
+	int hour, min, day, month, year;
+
+	year = stoi(str.substr(0, 4));
+	month = stoi(str.substr(5, 2));
+	day = stoi(str.substr(8, 2));
+	hour = stoi(str.substr(11, 2));
+	min = stoi(str.substr(14, 2));
+
+	if (min < 30) min = min + 30;
+	else { // min >= 30
+		if (hour == 23) {
+			day = day + 1;
+			hour = 0;
+			min = 60 - min;
+		}
+		else { // hour != 23
+			hour = hour + 1;
+			min = 60 - min;
+		}
+	}
+	tm tm_date = { 0 };
+	tm_date.tm_mon = month - 1;
+	tm_date.tm_mday = day;
+	tm_date.tm_year = year - 1900;
+	tm_date.tm_hour = hour;
+	tm_date.tm_min = min;
+
+	return mktime(&tm_date);
+}
+
+void Print_Congestion(MapCongestion *a, int N) {
+	for (int i = 0; i < N; i++) {
+		cout << " " << a[i].id;
+	}
+}
+
+// LUU Y : Map Congestion thieu mot co hieu danh dau lieu rang phuong tien do co nam trong khoang 
+// tg H1 H2 hay ko ?
 bool process7Request(VM_Request &request, L1List<AVLTree<VM_Record>> &dbAVL) {
 
+	double Along = request.params[0];
+	double Alat = request.params[1];
+	int M = (int)request.params[2];
+
+	stringstream ss3;
+	ss3 << (int)request.params[4]; string strtime = ss3.str();
+	if (strtime.length() == 1) strtime = "000" + strtime;
+	else if (strtime.length() == 2) strtime = "00" + strtime;
+	else if (strtime.length() == 3) strtime = "0" + strtime;
+	//------------------ lay ngay thang nam trong database
+	tm tm_date = { 0 };
+	char Date[26];
+	strPrintTime(Date, dbGBAVL1.getHead()->data.getpRoot()->data.timestamp); // 2016-12-05 00:41:04
+	string str = Date;
+
+	tm_date.tm_mon = stoi(str.substr(5, 2)) - 1;
+	tm_date.tm_mday = stoi(str.substr(8, 2));
+	tm_date.tm_year = stoi(str.substr(0, 4)) - 1900;
+	tm_date.tm_hour = stoi(strtime.substr(0, 2));
+	tm_date.tm_min = stoi(strtime.substr(2, 2));
+
+	time_t H1 = mktime(&tm_date);
+	time_t H2 = solveTime_Cog(H1);
+
+	L1Item<AVLTree<VM_Record>> *pRun = dbAVL.getHead();
+
+	MapCongestion *map_Total = new MapCongestion[dbAVL.getSize()]; int run_Total = 0;
+	MapCongestion *map_2kmTo1km = new MapCongestion[dbAVL.getSize()]; int run_2kmTo1km = 0;
+	MapCongestion *map_2kmTo1kmExc = new MapCongestion[dbAVL.getSize()]; int run_2kmTo1kmExc = 0;
+	int count_500m = 0;
+	while (pRun) {
+		MapCongestion *map = new MapCongestion();
+		strcpy(map->id, pRun->data.getpRoot()->data.id);
+		double dis = traverseCheckCongestion(pRun->data.getpRoot(), *map, Along, Alat, H1, H2);
+
+		if (map->check_500m == 1) ++count_500m;
+		if (map->check_2kmTo1km == 1) {
+			map->distance_2kmTo1km = dis;
+			map_2kmTo1km[run_2kmTo1km++] = *map;
+		}
+		else map_2kmTo1kmExc[run_2kmTo1kmExc++] = *map;
+		map_Total[run_Total++] = *map;
+		pRun = pRun->pNext;
+	}
+
+	if (count_500m < 0.7*M) {
+		shellSort(map_Total, run_Total, op_MapCong_id);
+		cout << request.code << ":  -"; Print_Congestion(map_Total, run_Total); cout << '\n';
+	}
+	else {
+		shellSort(map_2kmTo1km, run_2kmTo1km, op_MapCong_dis);
+		int runRet = run_2kmTo1km;
+		run_2kmTo1km = run_2kmTo1km * 0.75; // cac xe khong mac ket
+		runRet = runRet - run_2kmTo1km; // cac xe mac ket
+		for (int i = run_2kmTo1kmExc; i < run_2kmTo1kmExc + runRet; i++) {
+			map_2kmTo1kmExc[i] = map_2kmTo1km[i - run_2kmTo1kmExc + run_2kmTo1km];
+		}
+		run_2kmTo1kmExc += runRet;
+		shellSort(map_2kmTo1kmExc, run_2kmTo1kmExc, op_MapCong_id);
+
+		cout << request.code << ":"; Print_Congestion(map_2kmTo1kmExc, run_2kmTo1kmExc);  
+		cout << " -"; Print_Congestion(map_2kmTo1km, run_2kmTo1km); cout << '\n';
+	}
 	return true;
 }

@@ -485,6 +485,7 @@ bool AVLTree<T>::Insert(T &a, AVLNode<T>*&pR, bool(*op)(T &, T&)) { // this bool
 // ################## Sort ##################
 template<class T>
 void shellSort(T *pD, int N, bool (*op)(T& , T&)) {
+	if (N == 0) return;
 	for (int gap = N / 2; gap > 0; gap = gap / 2) {
 		for (int i = gap; i < N; i++) {
 			T temp = pD[i];
