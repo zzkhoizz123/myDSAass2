@@ -20,7 +20,7 @@
 
 #include "dsaLib.h"
 
-#define REQUEST_CODE_SIZE     16
+#define REQUEST_CODE_SIZE     50
 #define MAX_PARAM_SIZE         6
 using namespace std;
 

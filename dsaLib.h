@@ -348,7 +348,7 @@ bool AVLTree<T>::BalanceLeft(AVLNode<T> *&pR) {
 	RotLR(pR);
 	if (pR->b == LH) {
 		pR->b = pR->pLeft->b = EH;
-		pR->pLeft->b = RH;
+		pR->pRight->b = RH;
 		return false;
 	}
 	// else if pR->b == RH
@@ -371,7 +371,7 @@ bool AVLTree<T>::BalanceRight(AVLNode<T> *&pR) {
 	RotRL(pR);
 	if (pR->b == LH) {
 		pR->b = pR->pRight->b = EH;
-		pR->pRight->b = LH;
+		pR->pLeft->b = LH;
 		return false;
 	}
 	// pR->b == LH
