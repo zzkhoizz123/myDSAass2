@@ -174,6 +174,18 @@ void ConvertFollowTime(L1List<VM_Record> &recordList, L1List<myRecord> &dbAVL) {
 }
 
 //############################# process1Request #################################
+
+VM_Record Helpprocess1Request(AVLNode<VM_Record> *pR, VM_Record record) {
+
+	if (pR == NULL) {
+		return record;
+	}
+	else if (record.timestamp < pR->data.timestamp) return Helpprocess1Request(pR->pLeft, record);
+	else if (record.timestamp > pR->data.timestamp) return Helpprocess1Request(pR->pRight, record);
+	else return pR->data;
+}
+
+
 bool process1Request(VM_Request &request, L1List<myRecord> &dbGBAVL) {
 	// 1_0001_0003_001128
 
@@ -218,7 +230,7 @@ bool process1Request(VM_Request &request, L1List<myRecord> &dbGBAVL) {
 			if (strcmp(id1, pRun->data.AVL.getpRoot()->data.id) == 0) {
 				check1 = 1; /// co id1 trong db
 				VM_Record recordTemp; recordTemp.timestamp = timecompare;
-				record1 = pRun->data.AVL.Find(recordTemp, op1, op2);
+				record1 = Helpprocess1Request(pRun->data.AVL.getpRoot(), recordTemp);
 				if (strcmp(record1.id, "0") == 0 || strcmp(record1.id, "") == 0) {
 					cout << request.code[0] << ": " << "-1\n"; /// record1 khong co tai thoi diem do	
 					return true;
@@ -228,7 +240,7 @@ bool process1Request(VM_Request &request, L1List<myRecord> &dbGBAVL) {
 			if (strcmp(id2, pRun->data.AVL.getpRoot()->data.id) == 0) {
 				check2 = 1; /// co id2 trong db
 				VM_Record recordTemp; recordTemp.timestamp = timecompare;
-				record2 = pRun->data.AVL.Find(recordTemp, op1, op2);
+				record2 = Helpprocess1Request(pRun->data.AVL.getpRoot(), recordTemp);
 				if (strcmp(record2.id, "0") == 0 || strcmp(record2.id, "") == 0) {
 					cout << request.code[0] << ": " << "-1\n";/// record2 khong co tai thoi diem do
 					return true;

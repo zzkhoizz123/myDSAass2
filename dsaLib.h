@@ -234,7 +234,6 @@ protected:
 	bool Insert(T &a, AVLNode<T>*&pR);
 	bool Insert(T &a, AVLNode<T>*&pR, bool(*op)(T &, T&));
 	bool Remove(T &a, AVLNode<T>*&pR);
-	T Find(T &a, AVLNode<T>* pR, bool (*op1)(T &, T &), bool (*op2)(T &, T&));
 	int Height(AVLNode<T>* pR);
 public:
 
@@ -267,9 +266,6 @@ public:
 		return Remove(a, this->pRoot);
 	}
 
-	T Find(T &a, bool (*op1)(T &, T &), bool (*op2)(T &, T&)) {
-		return this->Find(a, this->pRoot, op1, op2);
-	}
 };
 
 template<class T>
@@ -390,18 +386,6 @@ int AVLTree<T>::Height(AVLNode<T>* pR) {
 			return lDepth + 1;
 		else return rDepth + 1;
 	}
-}
-
-template<class T>
-T AVLTree<T>::Find(T &a, AVLNode<T>* pR, bool (*op1)(T&, T&), bool (*op2)(T&, T&)) { // op1: is compare smaller, 
-																						// op2 : is compare greater
-	if (pR == NULL) {
-		T ret;
-		return ret; // a.id[0] == '0';
-	}
-	else if (op1(a, pR->data) == true) return Find(a, pR->pLeft, op1 ,op2);
-	else if (op2(a , pR->data) == true)  return Find(a, pR->pRight, op1, op2);
-	else return pR->data;
 }
 
 template<class T>
