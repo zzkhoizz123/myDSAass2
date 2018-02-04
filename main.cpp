@@ -24,6 +24,5 @@ int main(int narg, char** argv) {
 
     cout << resetiosflags(ios::showbase) << setprecision(-1);
 
-	system("pause");
     return 0;
 }

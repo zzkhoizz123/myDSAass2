@@ -70,33 +70,14 @@ void loadVMDB(char* fName, L1List<VM_Record> &db) {
 
 		//--------------------------------------------------:::: get id
 		int run = 0;
-		char recordRet[ID_MAX_LENGTH];
+		
 		while (ss >> ch) {
 			if (ch == ',')
 				break;
-			recordRet[run] = ch;
+			record.id[run] = ch;
 			run++;
 		}
-		recordRet[run] = '\0';
-
-		if (run == 1) {
-			string str2 = "000" + (string)recordRet;
-			const char *a = str2.c_str();
-			strcpy(record.id, a);
-		}
-		else if (run == 2) {
-			string str2 = "00" + (string)recordRet;
-			const char *a = str2.c_str();
-			strcpy(record.id, a);
-		}
-		else if (run == 3) {
-			string str2 = "0" + (string)recordRet;
-			const char *a = str2.c_str();
-			strcpy(record.id, a);
-		}
-		else {
-			strcpy(record.id, recordRet);
-		}
+		record.id[run] = '\0';
 
 		//--------------------------------------------------:::: get Longitude and latitude
 		ss >> record.longitude;
@@ -124,7 +105,7 @@ void process(L1List<VM_Request>& requestList, L1List<VM_Record>& rList) {
 
     while (!requestList.isEmpty()) {
         if(!processRequest(requestList[0], rList, pGData))
-            cout << requestList[0].code << " is an invalid event\n";
+            cout << requestList[0].code[0] << " is an invalid event\n";
         requestList.removeHead();
     }
     releaseVMGlobalData(pGData);
